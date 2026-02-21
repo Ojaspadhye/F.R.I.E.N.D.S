@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework.authtoken', # This is not used currently
     'rest_framework',
-    'drf_yasg', # This is for documentation
     'django_extensions', # I installed it for running scripts
     'Profiles.apps.ProfilesConfig', # This is my app for profile
 ]

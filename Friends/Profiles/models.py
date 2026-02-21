@@ -28,10 +28,10 @@ class CustomUserManager(BaseUserManager):
 class UserProfile(AbstractBaseUser):
     username = models.CharField(max_length=100, unique=True)
     email = models.EmailField(unique=True)
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=50, null=True)
+    last_name = models.CharField(max_length=50, null=True)
     is_active = models.BooleanField(default=True)
-    info = models.TextField(max_length=200, blank=True)
+    info = models.TextField(max_length=200, blank=True, null=True)
     #is_staff = models.BooleanField(default=False) -> Not implemented yet
     date_joined = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

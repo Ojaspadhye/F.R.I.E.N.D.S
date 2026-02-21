@@ -25,7 +25,6 @@ class UserProfileModel(TestCase):
         self.assertEqual(user.last_name, "Backend Dev")
         self.assertEqual(user.info, "I am the backend dev")
         self.assertTrue(user.is_active)
-        self.assertFalse(user.is_staff)
 
     
     def test_password(self):
