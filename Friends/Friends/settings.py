@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions', # I installed it for running scripts
     'Profiles.apps.ProfilesConfig', # This is my app for profile
+    'Connections.apps.ConnectionsConfig' # This is my app for connections
 ]
 
 MIDDLEWARE = [
