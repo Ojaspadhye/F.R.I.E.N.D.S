@@ -1,5 +1,8 @@
 from django.test import TestCase
+from rest_framework.test import APITestCase
 from Profiles.models import UserProfile
+from django.urls import reverse
+from rest_framework import status
 
 # Create your tests here.
 
@@ -44,3 +47,62 @@ class UserProfileModel(TestCase):
     
     def test_user_str(self):
         self.assertEqual(str(self.user), "Test")
+
+
+
+class UserBasicAuth(APITestCase):
+
+    def setUp(self):
+        self.username = "TestUser"
+        self.password = "My_Fat_cock"
+        self.email = "Test@TestUser.com"
+
+        self.login_URL = reverse('user_login')
+        self.signup_URL = reverse('user_signup')
+        self.get_profile_URL = reverse('user_profile') 
+
+    def test_signup(self):
+        payload = {
+            "username": self.username,
+            "password": self.password,
+            "email_id": self.email
+        }
+
+        response = self.client.post(
+            self.signup_URL, 
+            payload, 
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_login_get_profile(self):
+
+        UserProfile.objects.create_user(
+            username=self.username,
+            email=self.email,
+            password=self.password
+        )
+
+        payload = {
+            "username_email": self.username,
+            "password": self.password
+        }
+
+        response = self.client.post(
+            self.login_URL,
+            payload,
+            format="json"
+        )
+
+        access = response.data["AccessToken"]
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('AccessToken', response.data)
+        self.assertIn('RefreshToken', response.data)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        profile_response = self.client.get(self.get_profile_URL)
+
+        self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile_response.data['username'], self.username)

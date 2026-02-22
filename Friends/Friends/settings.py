@@ -121,6 +121,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+AUTH_USER_MODEL = 'Profiles.UserProfile'
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
