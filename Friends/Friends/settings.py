@@ -124,6 +124,8 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'Profiles.UserProfile'
 
+CSRF_COOKIE_SECURE = False
+
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 

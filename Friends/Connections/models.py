@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 # Create your models here.
 '''
@@ -20,73 +21,118 @@ This is what i done either this works or i am fucking stupid
 
 
 
-
-class FriendManager():
-    def send_request(self, sender, reciver): # To send a request
-        if sender == reciver:
-            raise ValueError("You cant sent request to yourself")
-        
-        user1, user2 = sorted([sender, reciver], key=lambda x: x.id)
-
-        isconnections = self.filter(user1=user1, user2=user2).first()
-        if isconnections:
-            if isconnections.status == 'Blocked':
-                raise ValueError("The relation is Blocked")
-            
-            elif isconnections.status == 'Pending':
-                raise ValueError("The request alredy pending")
-            
-            elif isconnections.status == 'Accepted':
-                raise ValueError('Friendship alredy established')
-            
-            elif isconnections.status == 'Regected':
-                isconnections.sender = sender
-                isconnections.status = 'Pending'
-                isconnections.save()
-                return isconnections
-            
-
-        return self.create(user1=user1, user2=user2, sender=sender, status='pending')
+from django.db import models
+from django.db.models import Q
 
 
+class FriendManager(models.Manager):
+    def send_request(self, sender, receiver):
+        if sender == receiver:
+            raise ValueError("You cannot send a request to yourself.")
+        user1, user2 = sorted([sender, receiver], key=lambda x: x.id)
 
-    def responding_request(self, status_choice, user): # To accept block regect etc
-        pass
+        existing = self.filter(user1=user1, user2=user2).first()
 
-    def get_friends(self, user): # To get friends that have accepted and user has accepted
-        pass
+        if existing:
+            if existing.status == 'blocked':
+                raise ValueError("This relationship is blocked.")
 
-    def sent_ispending(self, user): # To get the pending requests sent by user
-        pass
+            elif existing.status == 'pending':
+                raise ValueError("Friend request already pending.")
 
-    def recived_ispending(self, user): # To get recived requests sent to user
-        pass
+            elif existing.status == 'accepted':
+                raise ValueError("Friendship already eexists.")
+
+            elif existing.status == 'rejected':
+                existing.sender = sender
+                existing.status = 'pending'
+                existing.save()
+                return existing
+
+        return self.create(
+            user1=user1,
+            user2=user2,
+            sender=sender,
+            status='pending'
+        )
+
+
+
+    def responding_request(self, request_obj, current_user, action):
+        if action not in ['accepted', 'rejected', 'blocked']:
+            raise ValueError("Invalid action.")
+
+        sender = request_obj.sender
+        receiver = request_obj.user2 if request_obj.user1 == sender else request_obj.user1
+
+        if action in ['accepted', 'rejected']:
+            if current_user != receiver:
+                raise ValueError("Who are you")
+
+        if action == 'blocked':
+            if current_user not in [sender, receiver]:
+                raise ValueError("You are blocked")
+
+        request_obj.status = action
+        request_obj.save()
+        return request_obj
+
+
+    def get_friends(self, user):
+        relations = self.filter(
+            Q(user1=user) | Q(user2=user),
+            status='accepted'
+        )
+
+        friends = []
+
+        for relation in relations:
+            friends.append(
+                relation.user2 if relation.user1 == user else relation.user1
+            )
+        return friends
+
+
+    def sent_ispending(self, user):
+        return self.filter(
+            sender=user,
+            status='pending'
+        )
+
+
+    def received_ispending(self, user):
+        return self.filter(
+            Q(user1=user) | Q(user2=user),
+            status='pending'
+        ).exclude(sender=user)
+    
+
 
 
 class Friend(models.Model):
-    user1 = models.ForeignKey( # This is userid1 < userid2 so that it prevents
+    user1 = models.ForeignKey(
         'Profiles.UserProfile',
         on_delete=models.CASCADE,
-        related_name='user1'
+        related_name='friend_user1'
     )
 
     user2 = models.ForeignKey(
         'Profiles.UserProfile',
         on_delete=models.CASCADE,
-        related_name='user2'
+        related_name='friend_user2'
     )
 
     sender = models.ForeignKey(
         'Profiles.UserProfile',
         on_delete=models.CASCADE,
-        related_name='sender'
+        related_name='sent_friend_requests'
     )
 
     STATUS_CHOICES = (
-        ('Pending', 'pending'), # This is the default on creation
-        ('Accepted', 'accepted'),
-        ('Blocked', 'blocked'), # If one blocks No Repeted Requests can be made
-        ('Regected', 'regected') # Repeted request can be made 
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('blocked', 'Blocked'),
+        ('rejected', 'Rejected'),
     )
 
     status = models.CharField(
@@ -100,10 +146,5 @@ class Friend(models.Model):
 
     objects = FriendManager()
 
-
     class Meta:
-        constraints = [
-
-        ]
-
-
+        unique_together = ('user1', 'user2')

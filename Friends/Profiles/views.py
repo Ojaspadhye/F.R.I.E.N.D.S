@@ -93,6 +93,7 @@ def get_profile_view(request):
     user = request.user 
     
     return Response({
+        "Id": user.id,
         "username": user.username,
         "email": user.email,
         "first_name": user.first_name,
