@@ -75,39 +75,28 @@ def send_request(request):
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def respond_request(request):
-    request_id = request.data.get("request_id")
+    request_id = request.data.get("requestid")
     action = request.data.get("action")
 
     if not request_id or not action:
-        return Response(
-            {"error": "request_id and action are required"},
-            status=400
-        )
+        return Response({"error": "Invalid data"}, status=400)
 
     try:
         relation = Friend.objects.get(id=request_id)
     except Friend.DoesNotExist:
-        return Response(
-            {"error": "Friend request not found"},
-            status=404
-        )
+        return Response({"error": "Request not found"}, status=404)
 
     try:
-        Friend.objects.responding_request(
-            request_obj=relation,
-            current_user=request.user,
-            action=action
+        updated = Friend.objects.responding_request(
+            relation,
+            request.user,
+            action
         )
     except ValueError as e:
-        return Response(
-            {"error": str(e)},
-            status=400
-        )
+        return Response({"error": str(e)}, status=400)
 
-    return Response(
-        {"message": f"Request {action} successfully"},
-        status=200
-    )
+    serializer = FriendSerializer(updated)
+    return Response(serializer.data, status=200)
 
 
 @api_view(["GET"])
