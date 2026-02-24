@@ -93,9 +93,36 @@ def get_profile_view(request):
     user = request.user 
     
     return Response({
+        "Id": user.id,
         "username": user.username,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "info": user.info
     }, status=status.HTTP_200_OK)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_profile_view(request):
+    user = request.user
+    data = request.data
+
+    if "firstname" in data:
+        user.first_name = data.get("firstname")
+    if "lastname" in data:
+        user.last_name = data.get("lastname")
+    if "info" in data:
+        user.info = data.get("info")
+    if "username" in data:
+        username = data.get("username")
+        if UserProfile.objects.filter(username=username).exists():
+            return Response(
+                {"error": "Username Taken"},
+                status=400
+            )
+        user.username = username
+
+    user.save()
+    
+    return Response({"message": "Profile updated successfully"}, status=200)
