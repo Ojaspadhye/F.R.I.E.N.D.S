@@ -46,3 +46,9 @@ class UserProfile(AbstractBaseUser):
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
+
+'''
+Meta data will be added soon
+class UserMetaData(models):
+    pass
+'''
