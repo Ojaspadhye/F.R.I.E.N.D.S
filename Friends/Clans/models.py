@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import datetime
 
 # Create your models here.
 
@@ -25,19 +26,41 @@ Points to implement:
 '''
 
 class ClanManager(models.Manager):
-    def get_publicclans(self):
+    def request_public_clan_name(self, clan_name):
+        if not clan_name:
+            return self.none()
+
         return self.filter(
-            visibility='public',
-            activity='active'
+            name=clan_name,
+            visibility='public'
         )
 
-    def get_clans_bycreator(self, creator):
-        return self.filter(creator=creator)
+    def request_users_owned_clan(self, user):
+        if not user:
+            return self.none()
+
+        return self.filter(creator=user)
+
+    def request_clan_age_range(self, start_date, end_date):
+        if not start_date or not end_date:
+            return self.none()
+
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+        return self.filter(
+            created_at__date__gte=start_date,
+            created_at__date__lte=end_date
+        )
+        
 
 
 class Clan(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(max_length=500)
+    description = models.TextField(max_length=500, null=True)
 
     VISIBILITY_CHOICES = (
         ('Private', 'private'),
@@ -74,7 +97,17 @@ class MembersManager(models.Manager):
         return self.filter(roles='bot')
 
     def members_in_clan(self, clan):
+        if not clan:
+            return self.none()
         return self.filter(clan=clan)
+
+    def request_user_joined_clan(self, user):
+        if not user:
+            return self.none()
+
+        return self.filter(
+            member=user
+        ).exclude(roles='creator')
 
 
 class Members(models.Model):
@@ -105,6 +138,11 @@ class Members(models.Model):
     objects = MembersManager()
 
     class Meta:
-        unique_together = ('clan', 'member')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['clan', 'member'],
+                name='unique_clan_member'
+            )
+        ]
 
 

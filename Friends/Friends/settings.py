@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework.authtoken', # This is not used currently
     'rest_framework',
+    'oauth2_provider',
+    #'corsheaders',
     'django_extensions', # I installed it for running scripts
     'Profiles.apps.ProfilesConfig', # This is my app for profile
     'Connections.apps.ConnectionsConfig', # This is my app for connections
@@ -54,7 +56,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'oauth2_provider.backends.OAuth2Backend',
+    'oauth2_provider.middleware.OAuth2TokenMiddleware'
 ]
+
 
 ROOT_URLCONF = 'Friends.urls'
 
@@ -85,6 +91,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
 
 
 # Password validation
@@ -126,6 +133,8 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'Profiles.UserProfile'
 
 CSRF_COOKIE_SECURE = False
+
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

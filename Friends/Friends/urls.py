@@ -23,5 +23,6 @@ from rest_framework import permissions
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/user/', include('Profiles.urls')),
-    path('api/v1/friends/', include('Connections.urls'))
+    path('api/v1/friends/', include('Connections.urls')),
+    path('api/v1/clans/', include('Clans.urls'))
 ]
