@@ -46,21 +46,27 @@ INSTALLED_APPS = [
     'Profiles.apps.ProfilesConfig', # This is my app for profile
     'Connections.apps.ConnectionsConfig', # This is my app for connections
     'Clans.apps.ClansConfig',
+    'Messaging.apps.MessagingConfig'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+#    'django_cassandra_engine.middleware.CassandraMiddleware',  # if required
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+#    'oauth2_provider.middleware.OAuth2TokenMiddleware',  # safe to add here
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'oauth2_provider.backends.OAuth2Backend',
-    'oauth2_provider.middleware.OAuth2TokenMiddleware'
 ]
 
+
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'oauth2_provider.backends.OAuth2Backend',  # only if using OAuth2
+)
 
 ROOT_URLCONF = 'Friends.urls'
 
@@ -89,9 +95,21 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    },
+
+    'cassandra': {
+        'ENGINE': 'django_cassandra_engine',
+        'NAME': 'messaging',
+        'HOST': '127.0.0.1',
+        'PORT': 9042,
+        'OPTIONS': {
+            'replication': {
+                'strategy_class': 'SimpleStrategy',
+                'replication_factor': 1
+            }
+        }
     }
 }
-
 
 
 # Password validation
@@ -114,9 +132,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # REST Framework
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # For JWT
-    ]
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',  # optional if using OAuth2 too
+    ),
 }
 
 # Simple JWT token configurations

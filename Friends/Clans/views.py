@@ -63,14 +63,13 @@ def get_popular_clan(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_clan_by_agerange(request):
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
+    min_limit = int(request.GET.get("min_limit"))
+    max_limit = int(request.GET.get("max_limit"))
 
-    clans = Clan.objects.request_clan_age_range(start_date, end_date)
+    clans = Clan.objects.request_clan_age_range(min_limit=min_limit, max_limit=max_limit)
 
     serializer = ClanSerializer(clans, many=True)
-
-    return Response(serializer.data)
+    return Response(serializer.data, status=200)
 
 
 @api_view(["GET"])

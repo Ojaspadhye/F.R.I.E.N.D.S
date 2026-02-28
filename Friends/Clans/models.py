@@ -1,5 +1,7 @@
 from django.db import models
 from datetime import datetime
+from django.utils import timezone
+from datetime import timedelta
 
 # Create your models here.
 
@@ -40,22 +42,17 @@ class ClanManager(models.Manager):
             return self.none()
 
         return self.filter(creator=user)
-
-    def request_clan_age_range(self, start_date, end_date):
-        if not start_date or not end_date:
+        
+    def request_clan_age_range(self, min_limit: int, max_limit: int):
+        if min_limit is None or max_limit is None:
             return self.none()
 
-        if isinstance(start_date, str):
-            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        now = timezone.now()
 
-        if isinstance(end_date, str):
-            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        start_date = now - timedelta(days=max_limit)
+        end_date = now - timedelta(days=min_limit)
 
-        return self.filter(
-            created_at__date__gte=start_date,
-            created_at__date__lte=end_date
-        )
-        
+        return self.filter(created_at__gte=start_date, created_at__lte=end_date)
 
 
 class Clan(models.Model):

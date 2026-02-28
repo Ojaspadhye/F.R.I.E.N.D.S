@@ -1,0 +1,5 @@
+Either i got the thing wrong or missed some steps as the ./manage.py sync_cassandra command didnt work 
+or when i asked to chatgpt it suggested this method as 
+the documentation is old
+Here is the link 
+https://pypi.org/project/django-cassandra-engine/
