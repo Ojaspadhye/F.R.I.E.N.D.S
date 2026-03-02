@@ -56,7 +56,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-#    'oauth2_provider.middleware.OAuth2TokenMiddleware',  # safe to add here
+    'oauth2_provider.middleware.OAuth2TokenMiddleware',  # safe to add here
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -69,6 +69,24 @@ AUTHENTICATION_BACKENDS = (
 )
 
 ROOT_URLCONF = 'Friends.urls'
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
 
 TEMPLATES = [
     {
@@ -97,18 +115,18 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     },
 
-    'cassandra': {
-        'ENGINE': 'django_cassandra_engine',
-        'NAME': 'messaging',
-        'HOST': '127.0.0.1',
-        'PORT': 9042,
-        'OPTIONS': {
-            'replication': {
-                'strategy_class': 'SimpleStrategy',
-                'replication_factor': 1
-            }
-        }
-    }
+#    'cassandra': {
+#        'ENGINE': 'django_cassandra_engine',
+#        'NAME': 'messaging',
+#        'HOST': '127.0.0.1',
+#        'PORT': 9042,
+#        'OPTIONS': {
+#            'replication': {
+#                'strategy_class': 'SimpleStrategy',
+#                'replication_factor': 1
+#            }
+#        }
+#    }
 }
 
 
@@ -120,7 +138,7 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', "OPTIONS": {"min_length": 8}
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -136,6 +154,13 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',  # optional if using OAuth2 too
     ),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+    },
+    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
 }
 
 # Simple JWT token configurations
@@ -152,6 +177,9 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'Profiles.UserProfile'
 
 CSRF_COOKIE_SECURE = False
+
+
+OTP_EXPIRY_MINUTES = 2
 
 CORS_ORIGIN_ALLOW_ALL = True
 

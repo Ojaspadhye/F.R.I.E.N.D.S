@@ -108,7 +108,7 @@ class FriendManager(models.Manager):
     
 
 
-
+# Major set data of connections. Genral Lifecycle for setting connections.
 class Friend(models.Model):
     user1 = models.ForeignKey(
         'Profiles.UserProfile',
@@ -141,6 +141,14 @@ class Friend(models.Model):
         default='pending'
     )
 
+    accepted_at = models.DateTimeField(blank=True, null=True)
+    rejected_at = models.DateTimeField(blank=True, null=True)
+    blocked_at = models.DateTimeField(blank=True, null=True)
+    unfriend_at = models.DateTimeField(blank=True, null=True)
+    last_interaction_at = models.DateTimeField(blank=True, null=True)
+
+    is_active = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -148,3 +156,34 @@ class Friend(models.Model):
 
     class Meta:
         unique_together = ('user1', 'user2')
+
+
+# Block and Toxcicity prevention logic
+class Block(models.Model):
+    blocker_user = models.ForeignKey(
+        'Profiles.UserProfile',
+        on_delete=models.CASCADE,
+        related_name='blocker_user'
+    )
+
+    blocked_user = models.ForeignKey(
+        'Profiles.UserProfile',
+        on_delete=models.CASCADE,
+        related_name='Blocked_user'
+    )
+
+    blocked_at = models.DateTimeField(auto_now_add=True)
+    unblocked_at = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+
+    friend = models.ForeignKey(
+        Friend,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='blocks'
+    )
+
+    class Meta:
+        unique_together = ('blocker_user', 'blocked_user')

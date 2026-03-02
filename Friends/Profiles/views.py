@@ -1,128 +1,122 @@
-from django.shortcuts import render
-from Profiles.models import UserProfile
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
+from rest_framework.decorators import api_view, throttle_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
+from Profiles.models import UserProfile
+from Profiles.serializer import OTPVerifySerializer, SignupSerializer, LoginSerializer
+from Profiles.services import sign_up_procedure, verify_otp_and_activate, resend_otp, login_procedure
+import logging
 
 # Create your views here.
 
-@api_view(['POST'])
-def signup_views(request):
-    username = request.data.get("username")
-    email = request.data.get("email_id")
-    first_name = request.data.get("firstname")
-    last_name = request.data.get("lastname")
-    info = request.data.get("info")
-    password = request.data.get("password")
+logger = logging.getLogger(__name__)
 
-    if not username or not email or not password:
-        return Response(
-            {"error": "Invalid data"},
-            status=400
-        )
-    
-    if UserProfile.objects.filter(email=email).exists():
-        return Response(
-            {"error": "Email Id alredy exists"},
-            status=400
-        )
-    
-    if UserProfile.objects.filter(username=username).exists():
-        return Response(
-            {"error": "Username Taken"},
-            status=400
-        )
-    
-    user = UserProfile.objects.create(
-        username=username,
-        email=email,
-        first_name=first_name,
-        last_name=last_name,
-        info=info
+class SignupThrottle(AnonRateThrottle):
+    rate = "5/hour"
+
+class OTPVerifyThrottle(AnonRateThrottle):
+    rate = "10/hour"
+
+class OTPResendThrottle(AnonRateThrottle):
+    rate = "3/hour"
+
+class LoginThrottle(AnonRateThrottle):
+    rate = "15/hour"
+
+
+@api_view(["POST"])
+@throttle_classes([SignupThrottle])
+def signup(request):
+    serializer = SignupSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    sign_up_procedure(serializer.validated_data)
+    return Response(
+        {"message": "A verification code has been sent to your email."},
+        status=status.HTTP_201_CREATED,
     )
 
-    user.set_password(password)
 
-    user.save()
+@api_view(["POST"])
+@throttle_classes([OTPVerifyThrottle])
+def verify_otp(request):
+    serializer = OTPVerifySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    verify_otp_and_activate(
+        email     = serializer.validated_data["email"],
+        otp_input = serializer.validated_data["otp"],
+    )
+    
+    return Response(
+        {"message": "Account verified successfully."},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@throttle_classes([OTPResendThrottle])
+def resend_otp_view(request):
+    email = request.data.get("email", "").strip().lower()
+    
+    if not email:
+        return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+    resend_otp(email)
 
     return Response(
-        {"message": "User Created sucessfully"},
-        status=201
+        {"message": "If this email is registered and unverified, a new code has been sent."},
+        status=status.HTTP_200_OK,
     )
 
 
-@api_view(['POST'])
+@api_view(["POST"])
+@throttle_classes([LoginThrottle])
 def login_views(request):
-    username_email = request.data.get("username_email")
-    password = request.data.get("password")
+    serializer = LoginSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-    if not username_email or not password:
-        return Response({"error": "Invalid Data"}, status=400)
-    
-    # Use .get(), not .filter()
-    try:
-        if "@" in username_email:
-            user = UserProfile.objects.get(email=username_email)
-        else:
-            user = UserProfile.objects.get(username=username_email)
-    except UserProfile.DoesNotExist:
-        return Response({"error": "User Does not exist"}, status=401)
-    
-    # Check password properly
-    if not user.check_password(password):
-        return Response({"error": "Incorrect Password"}, status=401)
-    
-    if not user.is_active:
-        return Response({"error": "Account disabled"}, status=403)
-    
-    refresh = RefreshToken.for_user(user)
-    access = refresh.access_token
+    user_profile = serializer.user
+    login_tokens = login_procedure(user_profile)
 
-    return Response({
-        "RefreshToken": str(refresh),
-        "AccessToken": str(access)
-    }, status=200)
+
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_profile_view(request):
-    # request.user is automatically populated via the JWT token
-    user = request.user 
-    
+    user = request.user
     return Response({
-        "Id": user.id,
-        "username": user.username,
-        "email": user.email,
+        "id":         user.id,
+        "username":   user.username,
+        "email":      user.email,
         "first_name": user.first_name,
-        "last_name": user.last_name,
-        "info": user.info
+        "last_name":  user.last_name,
+        "info":       user.info,
     }, status=status.HTTP_200_OK)
 
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
-def update_profile_view(request):
+def update_profile_view(request: Request) -> Response:
     user = request.user
     data = request.data
 
-    if "firstname" in data:
-        user.first_name = data.get("firstname")
-    if "lastname" in data:
-        user.last_name = data.get("lastname")
-    if "info" in data:
-        user.info = data.get("info")
+    allowed_fields = {
+        "firstname": "first_name",
+        "lastname":  "last_name",
+        "info":      "info",
+    }
+    for request_key, model_field in allowed_fields.items():
+        if request_key in data:
+            setattr(user, model_field, data[request_key])
+
     if "username" in data:
-        username = data.get("username")
-        if UserProfile.objects.filter(username=username).exists():
-            return Response(
-                {"error": "Username Taken"},
-                status=400
-            )
-        user.username = username
+        new_username = data["username"].strip().lower()
+        if UserProfile.objects.filter(username__iexact=new_username).exclude(pk=user.pk).exists():
+            return Response({"error": "Username is already taken."}, status=status.HTTP_400_BAD_REQUEST)
+        user.username = new_username
 
     user.save()
-    
-    return Response({"message": "Profile updated successfully"}, status=200)
+    return Response({"message": "Profile updated successfully."}, status=status.HTTP_200_OK)
+
