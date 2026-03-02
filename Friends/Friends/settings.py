@@ -40,22 +40,53 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework.authtoken', # This is not used currently
     'rest_framework',
+    'oauth2_provider',
+    #'corsheaders',
     'django_extensions', # I installed it for running scripts
     'Profiles.apps.ProfilesConfig', # This is my app for profile
-    'Connections.apps.ConnectionsConfig' # This is my app for connections
+    'Connections.apps.ConnectionsConfig', # This is my app for connections
+    'Clans.apps.ClansConfig',
+    'Messaging.apps.MessagingConfig'
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+#    'django_cassandra_engine.middleware.CassandraMiddleware',  # if required
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'oauth2_provider.middleware.OAuth2TokenMiddleware',  # safe to add here
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'oauth2_provider.backends.OAuth2Backend',  # only if using OAuth2
+)
+
 ROOT_URLCONF = 'Friends.urls'
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
 
 TEMPLATES = [
     {
@@ -82,7 +113,20 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    },
+
+#    'cassandra': {
+#        'ENGINE': 'django_cassandra_engine',
+#        'NAME': 'messaging',
+#        'HOST': '127.0.0.1',
+#        'PORT': 9042,
+#        'OPTIONS': {
+#            'replication': {
+#                'strategy_class': 'SimpleStrategy',
+#                'replication_factor': 1
+#            }
+#        }
+#    }
 }
 
 
@@ -94,7 +138,7 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', "OPTIONS": {"min_length": 8}
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -106,9 +150,17 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # REST Framework
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # For JWT
-    ]
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',  # optional if using OAuth2 too
+    ),
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+    },
+    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
 }
 
 # Simple JWT token configurations
@@ -125,6 +177,11 @@ SIMPLE_JWT = {
 AUTH_USER_MODEL = 'Profiles.UserProfile'
 
 CSRF_COOKIE_SECURE = False
+
+
+OTP_EXPIRY_MINUTES = 2
+
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
