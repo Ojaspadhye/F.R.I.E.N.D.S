@@ -4,7 +4,7 @@ from django.db import transaction
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
-from Profiles.models import UserProfile, OTPVerification
+from Profiles.models import UserProfile, OTPVerification, MetaProfileData
 from Profiles.exceptions import OTPExpiredException, OTPInvalidException, AccountAlreadyActiveException
 
 
@@ -82,13 +82,46 @@ def verify_otp_and_activate(email, otp_input):
     return user
 
 
-def login_procedure(validated_data):
-    user = validated_data.user
-
-    refresh = RefreshToken.for_user(user=user)
-    access = RefreshToken.access_token(refresh)
+def login_procedure(user):
+    refresh = RefreshToken.for_user(user)
+    access = refresh.access_token
 
     return {
-        "Access Token": str(access),
-        "Refresh Token": str(refresh)
+        "access_token": str(access),
+        "refresh_token": str(refresh)
     }
+
+
+def update_theme(user, updated_theme):
+    profile = MetaProfileData.objects.get(user=user)
+    profile.theme = updated_theme
+    profile.save()
+
+    return profile
+
+
+def update_coredata(user, data):
+    updated_fields = []
+
+    for attr, value in data.items():
+        setattr(user, attr, value)
+        updated_fields.append(attr)
+
+    user.save(update_fields=updated_fields)
+    return user
+
+
+
+def update_profile_meta_data(user, data):
+    profile, created = MetaProfileData.objects.get_or_create(user=user)
+
+    updated_fields = []
+
+    for attr, value in data.items():
+        setattr(profile, attr, value)
+        updated_fields.append(attr)
+
+    profile.save(update_fields=updated_fields)
+    return profile
+
+

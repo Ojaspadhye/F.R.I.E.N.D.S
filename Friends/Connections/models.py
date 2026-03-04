@@ -1,5 +1,9 @@
 from django.db import models
 from django.db.models import Q
+from django.dispatch import receiver
+from django.db.models.signals import post_save
+import secrets
+from django.utils import timezone
 
 # Create your models here.
 '''
@@ -18,12 +22,8 @@ otherwise there might be a chase where redundante requests could be made
 
 This is what i done either this works or i am fucking stupid
 '''
-
-
-
-from django.db import models
-from django.db.models import Q
-
+def generate_connection_id():
+    return secrets.randbits(63)
 
 class FriendManager(models.Manager):
     def send_request(self, sender, receiver):
@@ -58,24 +58,38 @@ class FriendManager(models.Manager):
 
 
 
-    def responding_request(self, request_obj, current_user, action):
+    def respond(self, friendship, current_user, action):
+
         if action not in ['accepted', 'rejected', 'blocked']:
             raise ValueError("Invalid action.")
 
-        sender = request_obj.sender
-        receiver = request_obj.user2 if request_obj.user1 == sender else request_obj.user1
+        sender = friendship.sender
+        receiver = (
+            friendship.user2 if friendship.user1 == sender
+            else friendship.user1
+        )
 
         if action in ['accepted', 'rejected']:
             if current_user != receiver:
-                raise ValueError("Who are you")
+                raise ValueError("Only receiver can respond.")
 
         if action == 'blocked':
             if current_user not in [sender, receiver]:
-                raise ValueError("You are blocked")
+                raise ValueError("You are not part of this connection.")
 
-        request_obj.status = action
-        request_obj.save()
-        return request_obj
+        friendship.status = action
+
+        if action == "accepted":
+            friendship.accepted_at = timezone.now()
+
+        elif action == "rejected":
+            friendship.rejected_at = timezone.now()
+
+        elif action == "blocked":
+            friendship.blocked_at = timezone.now()
+
+        friendship.save()
+        return friendship
 
 
     def get_friends(self, user):
@@ -110,6 +124,8 @@ class FriendManager(models.Manager):
 
 # Major set data of connections. Genral Lifecycle for setting connections.
 class Friend(models.Model):
+    id = models.BigIntegerField(primary_key=True, default=generate_connection_id)
+
     user1 = models.ForeignKey(
         'Profiles.UserProfile',
         on_delete=models.CASCADE,
@@ -155,7 +171,10 @@ class Friend(models.Model):
     objects = FriendManager()
 
     class Meta:
+        verbose_name = "FriendShip"
+        verbose_name_plural = "FriendShips"
         unique_together = ('user1', 'user2')
+        
 
 
 # Block and Toxcicity prevention logic
@@ -187,3 +206,56 @@ class Block(models.Model):
 
     class Meta:
         unique_together = ('blocker_user', 'blocked_user')
+
+
+
+class FriendMeta(models.Model):
+    connection = models.OneToOneField(
+        to=Friend,
+        on_delete=models.CASCADE,
+        db_index=True
+    )
+
+    NOTIFICATION_CHOICE = (
+        ('email', 'email'),
+        ('message', 'message')
+    )
+
+    TAGS = (
+        ('work', 'work'),
+        ('classmates', 'classmates'),
+        ('sports', 'sports'),
+        ('collage', 'collage')
+    )
+
+    user1_notification = models.CharField(max_length=10, choices=NOTIFICATION_CHOICE, default='email')
+    user2_notification = models.CharField(max_length=10, choices=NOTIFICATION_CHOICE, default='email')
+
+    user1_muted = models.BooleanField(default=False)
+    user2_muted = models.BooleanField(default=False)
+
+    theme = models.ImageField(upload_to="text_theme/", blank=True, null=True)
+    
+    user1_nickname = models.CharField(max_length=100, blank=True, null=True)
+    user2_nickname = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        verbose_name = "MetaFriendship"
+        verbose_name_plural = "MetaFriendships"
+    
+    def __str__(self):
+        return self.connction
+
+
+@receiver(post_save, sender=Friend)
+def create_user_meta(sender, instance, created, **extra_arguments):
+    if created:
+        FriendMeta.objects.create(
+            connection=instance
+        )
+    
+
+@receiver(post_save, sender=Friend)
+def match_username(sender, instance,  created, **extra_arguments):
+    if not created:
+        FriendMeta.objects.filter(connection=instance)
