@@ -79,12 +79,10 @@ class UserProfile(AbstractBaseUser):
 
 class OTPVerificationManager(models.Manager):
     def create_otp(self, user):
-        """Purge existing OTPs for this user and issue a fresh one."""
         self.filter(user=user).delete()
         return self.create(user=user, otp=self._generate_otp())
 
     def get_valid(self, email):
-        """Return the latest non-expired OTP for a given email, or None."""
         record = (
             self.filter(user__email=email)
             .select_related("user")
@@ -107,12 +105,12 @@ class OTPVerificationManager(models.Manager):
 
 
 class OTPVerification(models.Model):
-    user       = models.ForeignKey(
+    user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="otps",
     )
-    otp        = models.CharField(max_length=6)
+    otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = OTPVerificationManager()
@@ -156,7 +154,7 @@ class MetaProfileData(models.Model):
     pfp = models.ImageField(upload_to="avatars/", blank=True, null=True)
     banner = models.ImageField(upload_to="banners/", blank=True, null=True)
 
-    bio = models.TextField(max_length=100, blank=True, null=True)
+    bio = models.CharField(max_length=300, blank=True, null=True)
 
     birth_date = models.DateField(blank=True, null=True)
 

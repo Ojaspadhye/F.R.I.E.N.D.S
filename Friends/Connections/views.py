@@ -3,34 +3,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from Connections.models import Friend
 from Profiles.models import UserProfile
-from rest_framework import serializers
+from Connections.serializer import SendRequestSerializer
+from rest_framework import status
+from Connections.services import Friendservices
 
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = [
-            "id",
-            "username",
-            "first_name",
-            "last_name",
-        ]
-
-
-class FriendSerializer(serializers.ModelSerializer):
-    sender = UserProfileSerializer(read_only=True)
-    user1 = UserProfileSerializer(read_only=True)
-    user2 = UserProfileSerializer(read_only=True)
-    class Meta:
-        model = Friend
-        fields = [
-            "id",
-            "user1",
-            "user2",
-            "sender",
-            "status",
-            "created_at"
-        ]
 
 # Create your views here.
 
@@ -38,65 +14,59 @@ class FriendSerializer(serializers.ModelSerializer):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def send_request(request):
-    reciver_id = request.data.get("reciverId")
-
-    if not reciver_id:
-        return Response(
-            {"error": "ReciverId not mentioned"},
-            status=400
-        )
-    
-    try:
-        reciver = UserProfile.objects.get(id=reciver_id)
-    except UserProfile.DoesNotExist:
-        return Response(
-            {"error": "Reciver dose not exiset"},
-            status=404
-        )
-    
-    try:
-        relation = Friend.objects.send_request(
-            sender=request.user,
-            receiver=reciver
-        )
-    except ValueError as e:
-        return Response(
-            {"error": str(e)},
-            status=400
-        )
-    
-    return Response(
-        {"message": "Request sent successfully"},
-        status=201
+    serializer = SendRequestSerializer(
+        data=request.data,
+        context={"request": request}
     )
+    
+    serializer.is_valid(raise_exception=True)
+
+    sender = request.user
+    receiver = serializer.validated_data["receiver_id"]
+
+    try:
+        Friendservices.send_friend_request(sender, receiver)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"detail": "Friend request sent"}, status=status.HTTP_201_CREATED)
 
 
 
 @api_view(["PATCH"])
 @permission_classes([IsAuthenticated])
 def respond_request(request):
-    request_id = request.data.get("requestid")
-    action = request.data.get("action")
+    serializer = RespondRequestSerializer(
+        data=request.data,
+        context = {"request": request}
+    )
 
-    if not request_id or not action:
-        return Response({"error": "Invalid data"}, status=400)
+    serializer.is_valid(raise_exception=True)
+
+    responder = request.user
+    connection = serializer.validated_data["connection_id"]
+    action = serializer.validated_data["action"]
 
     try:
-        relation = Friend.objects.get(id=request_id)
-    except Friend.DoesNotExist:
-        return Response({"error": "Request not found"}, status=404)
-
-    try:
-        updated = Friend.objects.responding_request(
-            relation,
-            request.user,
-            action
+        friendship = Friendservices.respond_connection_request(
+            responder=responder,
+            connection_id=connection,
+            action=action
         )
     except ValueError as e:
-        return Response({"error": str(e)}, status=400)
-
-    serializer = FriendSerializer(updated)
-    return Response(serializer.data, status=200)
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    return Response(
+        {
+            "message": f"Request {action} successfully.",
+            "connection_id": friendship.id,
+            "status": friendship.status
+        },
+        status=status.HTTP_200_OK
+    )
 
 
 @api_view(["GET"])

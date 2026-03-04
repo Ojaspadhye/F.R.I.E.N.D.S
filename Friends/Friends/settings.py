@@ -165,7 +165,7 @@ REST_FRAMEWORK = {
 
 # Simple JWT token configurations
 SIMPLE_JWT = {
-    "ASCESS_TOKEN_LIFETIME": timedelta(hours=5),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 
     "ALGORITHM": "HS256",
