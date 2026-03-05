@@ -11,7 +11,7 @@ class Friendservices:
         friendship = Friend.objects.send_request(sender, reciver)
 
         send_friends_notification_async(
-            user=reciver,
+            user=reciver.username,
             message=f"New Connection Request: {sender.username}"
         )
 
@@ -29,12 +29,26 @@ class Friendservices:
         )
 
         if action == "accepted":
-            from .notifications import send_notification_async
 
             sender = friendship.sender
-            send_notification_async.delay(
+            send_friends_notification_async(
                 sender.id,
                 f"{responder.username} accepted your request"
             )
 
         return friendship
+    
+    @staticmethod
+    def get_friend_pending_requests(user):
+        return Friend.objects.received_ispending(user)
+    
+    @staticmethod
+    def get_friends(user):
+        return Friend.objects.get_friends(user)
+    
+    @staticmethod
+    def get_pending_sent_requests(user):
+        return Friend.objects.sent_ispending(user)
+    
+
+

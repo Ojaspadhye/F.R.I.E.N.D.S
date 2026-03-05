@@ -3,6 +3,14 @@ from Connections.models import Friend, FriendMeta
 from Profiles.models import UserProfile
 
 
+class UserNameIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = [
+            "id",
+            "username"
+        ]
+
 class SendRequestSerializer(serializers.Serializer):
     receiver_id = serializers.IntegerField()
 
@@ -51,14 +59,68 @@ class RespondRequestSerializer(serializers.Serializer):
             connection = Friend.objects.get(id=connction_id)
         except Friend.DoesNotExist:
             raise serializers.ValidationError("Connection doesnot exisit")
+        
+        self._connection = connection
+        return connection.id
 
-    def validate_connections_status(self, data):
-        user = self.context["request"].user.userprofile
-        connection = data["connection_id"]
+    def validate(self, data):
+        user = self.context["request"].user
+        connection = getattr(self, "_connection", None)
+
+        if not connection:
+            raise serializers.ValidationError("Connection not found")
 
         if user != connection.user1 and user != connection.user2:
             raise serializers.ValidationError("You are not part of this connection")
+        
+        if connection.status == "accepted":
+            raise serializers.ValidationError("This connection is already accepted")
+        
+        if connection.status != "pending":
+            raise serializers.ValidationError("This connection has already been acted upon")
+
+        if data["action"] in ["accepted", "rejected"] and user == connection.sender:
+            raise serializers.ValidationError("You are not part of this")
 
         return data
 
+class PendingFriendRequestSerializer(serializers.ModelSerializer):
+    sender = UserNameIdSerializer()
+    class Meta:
+        model = Friend
+        fields = [
+            "id",
+            "sender",
+            "created_at",
+        ]
 
+
+
+class ListFriendsSerializer(serializers.ModelSerializer):
+    user1 = UserNameIdSerializer()
+    user2 = UserNameIdSerializer()
+    sender = UserNameIdSerializer()
+    class Meta:
+        model = Friend
+        fields = [
+            "id",
+            "user1",
+            "user2",
+            "sender",
+            "created_at",
+            "accepted_at",
+        ]
+
+
+class PendingSentSerializer(serializers.ModelSerializer):
+    user1 = UserNameIdSerializer()
+    user2 = UserNameIdSerializer()
+
+    class Meta:
+        model = Friend
+        fields = [
+            "id",
+            "user1",
+            "user2",
+            "created_at",
+        ]
