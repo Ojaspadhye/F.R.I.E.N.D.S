@@ -3,9 +3,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from Connections.models import Friend
 from Profiles.models import UserProfile
-from Connections.serializer import SendRequestSerializer
+from Connections.serializer import SendRequestSerializer, RespondRequestSerializer, PendingFriendRequestSerializer, ListFriendsSerializer, PendingSentSerializer
 from rest_framework import status
 from Connections.services import Friendservices
+from Connections.pagination import PendingRequestPagination, ListFriendsPagination, IsPendingRequestPagination
 
 
 # Create your views here.
@@ -68,37 +69,49 @@ def respond_request(request):
         status=status.HTTP_200_OK
     )
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_pending_requests(request):
+    user = request.user
+
+    
+    friends = Friendservices.get_friend_pending_requests(user)
+    print (friends)
+
+    paginator = PendingRequestPagination()
+    result_pages = paginator.paginate_queryset(friends, request)
+
+    serializer = PendingFriendRequestSerializer(result_pages, many=True) # many=True imp as F
+
+    return  paginator.get_paginated_response(serializer.data)
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_friends(request):
-    user = request.user.id
+    user = request.user
 
-    friends = Friend.objects.get_friends(user)
-    serializer = UserProfileSerializer(friends, many=True)
+    friends = Friendservices.get_friends(user)
 
-    return Response(serializer.data, status=200)
+    paginator = ListFriendsPagination()
+    results = paginator.paginate_queryset(friends, request)
+
+    serializer = ListFriendsSerializer(results, many=True)
+
+    return paginator.get_paginated_response(serializer.data)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_pending_recived(request):
-    relations = Friend.objects.received_ispending(
-        request.user.id
-    )
-
-    serializer = FriendSerializer(relations, many=True)
-
-    return Response(serializer.data, status=200)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_pending_sent(request):
-    relations = Friend.objects.sent_ispending(
-        request.user.profile
-    )
+    user = request.user
 
-    serializer = FriendSerializer(relations, many=True)
+    friend_requests = Friendservices.get_pending_sent_requests(user)
 
-    return Response(serializer.data, status=200)
+    paginator = IsPendingRequestPagination()
+    results = paginator.paginate_queryset(friend_requests, request)
 
+    serializer = PendingSentSerializer(results, many=True)
+
+    return paginator.get_paginated_response(serializer.data)

@@ -93,18 +93,10 @@ class FriendManager(models.Manager):
 
 
     def get_friends(self, user):
-        relations = self.filter(
+        return self.filter(
             Q(user1=user) | Q(user2=user),
             status='accepted'
-        )
-
-        friends = []
-
-        for relation in relations:
-            friends.append(
-                relation.user2 if relation.user1 == user else relation.user1
-            )
-        return friends
+        ).order_by('-accepted_at')
 
 
     def sent_ispending(self, user):
@@ -174,6 +166,7 @@ class Friend(models.Model):
         verbose_name = "FriendShip"
         verbose_name_plural = "FriendShips"
         unique_together = ('user1', 'user2')
+        ordering = ['-created_at'] 
         
 
 
