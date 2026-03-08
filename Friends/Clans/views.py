@@ -1,10 +1,12 @@
-from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from Clans.models import Clan, Members
 from django.db.models import Count
 from Profiles.models import UserProfile
 from rest_framework.response import Response
+from Clans.services import get_user_owned_clans, get_user_joined_clans, get_famous_clans
+from Clans.pagination import UserOwnedClansPagination, UserJoinedClansPaginaton, PopularClanPagination
+from Clans.serializer import ClansSerializer, UserJoinedClansSerializer
 
 # Create your views here.
 
@@ -18,67 +20,86 @@ Filters:
     > by straightup name
 '''
 
-class ClanSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Clan
-        fields = "__all__"
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def get_users_owned_clans(request):
+def get_users_owned_clans_views(request):
     user = request.user
-    user_owned_clans = Clan.objects.request_users_owned_clan(user)
+    
+    clans = get_user_owned_clans(user)
 
-    serializer = ClanSerializer(user_owned_clans, many=True)
+    paginator = UserOwnedClansPagination()
+    result = paginator.paginate_queryset(clans, request)
 
-    return Response(serializer.data, status=200)
+    serialized = ClansSerializer(result, many=True)
+
+    return paginator.get_paginated_response(serialized.data)
+
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_joined_clans(request):
     user = request.user
-    memberships = Members.objects.request_user_joined_clan(user)
+    membership = get_user_joined_clans(user)
 
-    clans = Clan.objects.filter(id__in=memberships.values_list("clan_id", flat=True))
+    pagintor = UserJoinedClansPaginaton()
+    result = pagintor.paginate_queryset(membership, request)
 
-    serializer = ClanSerializer(clans, many=True)
+    serialized = UserJoinedClansSerializer(result, many=True)
 
-    return Response(serializer.data)
+    return pagintor.get_paginated_response(serialized)
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_popular_clan(request):
-    clans = Clan.objects.annotate(
-        member_count=Count("clan_members")
-    ).order_by("-member_count")
+    clans = get_famous_clans()
 
-    serializer = ClanSerializer(clans, many=True)
+    paginator = PopularClanPagination()
+    result = paginator.paginate_queryset(clans, many=True)
 
-    return Response(serializer.data)
+    serialized = ClansSerializer(result, many=True)
 
+    return paginator.get_paginated_response(serialized)
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def get_clan_by_agerange(request):
-    min_limit = int(request.GET.get("min_limit"))
-    max_limit = int(request.GET.get("max_limit"))
-
-    clans = Clan.objects.request_clan_age_range(min_limit=min_limit, max_limit=max_limit)
-
-    serializer = ClanSerializer(clans, many=True)
-    return Response(serializer.data, status=200)
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
-def get_clan_by_name(request):
-    clan_name = request.GET.get("name")
+@permission_classes([IsAuthenticated])
+def get_clan(request):
+    pass
 
-    clans = Clan.objects.request_public_clan_name(clan_name)
 
-    serializer = ClanSerializer(clans, many=True)
+'''
+Todays task
+1. Creating a clan
+2. Joining a clan
+3. Update clan
+4. leave clan
+'''
 
-    return Response(serializer.data)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_clan(request):
+    pass
+
+
+@api_view(["PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+def update_clan(request):
+    pass
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def join_clan(request):
+    pass
+
+
+@api_view([])
+@permission_classes([])
+def leave_clan(request):
+    pass
+

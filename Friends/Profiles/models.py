@@ -4,7 +4,9 @@ from datetime import timedelta
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 import secrets
 from django.dispatch import receiver
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
+from Connections.models import Friend
+from django.db.models import Q
 from Friends import settings
 
 def generate_user_id():
@@ -206,3 +208,26 @@ def create_user_meta(sender, instance, created, **extra_arguments):
 def match_username(sender, instance,  created, **extra_arguments):
     if not created:
         MetaProfileData.objects.filter(user=instance).update(username=instance.username)
+
+
+@receiver(post_save, sender=Friend)
+def update_friend_count_increment(sender, instance, created, **kwargs):
+    if instance.status == "accepted":
+        for i in [instance.user1, instance.user2]:
+            MetaProfileData.objects.filter(user=i).update(
+                friends_count = Friend.objects.filter(
+                    Q(user1=i) | Q(user2=i),
+                    status="accepted"
+                ).count()
+            )
+            
+
+@receiver(post_delete, sender=Friend)
+def update_friend_count_decrement(sender, instance, **kwargs):
+    for i in [instance.user1, instance.user2]:
+        MetaProfileData.objects.filter(user=i).update(
+            friends_count=Friend.objects.filter(
+                Q(user1=i) | Q(user2=i),
+                status='accepted'
+            ).count()
+        )
