@@ -137,10 +137,10 @@ class Friend(models.Model):
     )
 
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('blocked', 'Blocked'),
-        ('rejected', 'Rejected'),
+        ('pending', 'pending'),
+        ('accepted', 'accepted'),
+        ('blocked', 'blocked'),
+        ('rejected', 'rejected'),
     )
 
     status = models.CharField(

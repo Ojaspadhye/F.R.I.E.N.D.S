@@ -1,7 +1,10 @@
 from django.db import models
+from django.contrib.auth.hashers import make_password, check_password
 from datetime import datetime
 from django.utils import timezone
 from datetime import timedelta
+from django.dispatch import receiver
+from django.db.models.signals import post_save, post_delete
 
 # Create your models here.
 
@@ -53,6 +56,24 @@ class ClanManager(models.Manager):
         end_date = now - timedelta(days=min_limit)
 
         return self.filter(created_at__gte=start_date, created_at__lte=end_date)
+    
+    def request_popular_clan(self):
+        return self.order_by('-member_count')
+    
+    def create_clan(self, name, creator, visibility='public', joining_code=None):
+        if joining_code:
+            joining_code = make_password(joining_code)
+
+        return self.create(
+            name=name.strip(),
+            creator_id=creator.id,
+            visibility=visibility,
+            joining_code=joining_code
+        )
+    
+    def check_code(self, clan, joining_code):
+        clan_code = clan.joining_code
+        return check_password(clan_code, joining_code)
 
 
 class Clan(models.Model):
@@ -60,8 +81,8 @@ class Clan(models.Model):
     description = models.TextField(max_length=500, null=True)
 
     VISIBILITY_CHOICES = (
-        ('Private', 'private'),
-        ('Public', 'public')
+        ('private', 'private'),
+        ('public', 'public')
     )
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='public')
 
@@ -75,10 +96,12 @@ class Clan(models.Model):
     joining_code = models.CharField(max_length=100, blank=True, null=True)
 
     ACTIVITY_CHOICES = (
-        ('Active', 'active'),
-        ('Inactive', 'inactive')
+        ('active', 'active'),
+        ('inactive', 'inactive')
     )
     activity = models.CharField(max_length=10, choices=ACTIVITY_CHOICES, default='active')
+
+    member_count = models.BigIntegerField(default=0)
 
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -143,3 +166,13 @@ class Members(models.Model):
         ]
 
 
+@receiver(post_save, sender=Members)
+def update_member_count_increment(sender, instance, created, **kwargs):
+    member_count = Members.objects.filter(clan=instance.clan, left_at__isnull=True).count()
+    Clan.objects.filter(id=instance.clan).update(member_count=member_count)
+
+
+@receiver(post_delete, sender=Members)
+def update_member_count_decrement(sender, instance, **kwargs):
+    member_count = Members.objects.filter(clan=instance.clan, left_at__isnull=True).count()
+    Clan.objects.filter(id=instance.clan).update(member_count=member_count)

@@ -76,7 +76,6 @@ def get_pending_requests(request):
 
     
     friends = Friendservices.get_friend_pending_requests(user)
-    print (friends)
 
     paginator = PendingRequestPagination()
     result_pages = paginator.paginate_queryset(friends, request)
